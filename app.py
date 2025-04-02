@@ -34,18 +34,15 @@ def extract_transcript_details(youtube_video_url, language='hi'):
             transcript = transcript_list.find_transcript(['en'])  # Fallback to English if Hindi isn't available
 
         transcript_text = " ".join(segment["text"] for segment in transcript.fetch())
-
         return transcript_text
     except Exception as e:
-        st.error(f"An error occurred while fetching the transcript: {e}")
-        return None
+        return None  # Return None so we can prompt for manual transcript
 
 def generate_gemini_content(transcript_text):
     """Generates a summarized response using Gemini AI."""
     try:
         model = genai.GenerativeModel("gemini-1.5-pro")
         response = model.generate_content(PROMPT_TEMPLATE + transcript_text)
-
         return response.text if response else "No summary available."
     except Exception as e:
         st.error(f"Error generating summary: {e}")
@@ -55,6 +52,7 @@ def generate_gemini_content(transcript_text):
 st.title("📺 YouTube Video Summarizer")
 
 youtube_link = st.text_input("Enter YouTube Video Link:")
+manual_transcript = None
 
 if youtube_link:
     video_id = youtube_link.split("v=")[-1].split("&")[0] if "v=" in youtube_link else youtube_link.split("/")[-1].split("?")[0]
@@ -62,9 +60,13 @@ if youtube_link:
 
 if st.button("Get Summary"):
     transcript_text = extract_transcript_details(youtube_link, language='hi')
-
-    if transcript_text:
-        summary = generate_gemini_content(transcript_text)
+    
+    if not transcript_text:
+        st.warning("Failed to fetch transcript. YouTube may have blocked requests from this server.")
+        manual_transcript = st.text_area("Paste the transcript manually (if available):")
+    
+    if transcript_text or manual_transcript:
+        summary = generate_gemini_content(transcript_text or manual_transcript)
         if summary:
             st.markdown("## 📌 Summary:")
             st.write(summary)
